@@ -1,2 +1,2 @@
 all:
-	clang++ main.cc other.cc -Wall -Wextra -Wpedantic -isystem /usr/lib/clang/23/include
+	clang++ main.cc other.cc -Wall -Wextra -Wpedantic -isystem /usr/lib/clang/23/include -std=c++26

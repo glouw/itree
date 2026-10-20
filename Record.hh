@@ -6,25 +6,33 @@
 #include <set>
 #include <vector>
 
-enum class AccessSpec
-{
-    Private,
-    Protected,
-    Public
-};
-
 struct Base
 {
     std::string name;
-    AccessSpec access;
+    clang::AccessSpecifier access;
+
     Base() = delete;
-    Base(const clang::CXXBaseSpecifier& base, const clang::CXXRecordDecl* derived);
+    Base(const clang::CXXRecordDecl* derived, const clang::CXXBaseSpecifier& base);
+};
+
+struct Method
+{
+    std::string returnType;
+    std::string name;
+    std::vector<std::string> paramTypes;
+    clang::AccessSpecifier access;
+
+    Method() = delete;
+    Method(const clang::CXXRecordDecl* derived, const clang::CXXMethodDecl* method);
+    std::string getSignature() const;
 };
 
 struct Record
 {
     std::string name;
     std::vector<Base> bases;
+    std::vector<Method> methods;
+
     Record() = delete;
     Record(const std::string& name): name(name) {}
     Record(const clang::CXXRecordDecl* decl);
@@ -32,4 +40,5 @@ struct Record
 };
 
 void Print(const std::vector<Record>& records);
-std::vector<Record> Sort(const std::set<Record>& records);
+
+std::vector<Record> Sorted(const std::set<Record>& records);

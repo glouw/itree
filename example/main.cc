@@ -1,79 +1,62 @@
 #include <iostream>
+#include <utility>
+
+struct Point
+{
+    int x;
+    int y;
+};
 
 struct A
 {
 };
 
-struct B
+struct Base : A
+{
+protected:
+    void test()
+    {
+    }
+};
+
+class X: Base, A
+{
+    void test()
+    {
+    }
+
+    void other()
+    {
+    }
+
+    void thing()
+    {
+    }
+
+public:
+    template <int... T>
+    void fun()
+    {
+    }
+};
+
+class YY : X
 {
 };
 
-class C: A, public B
+struct Y
 {
-};
-
-struct AA : A
-{
-};
-
-struct BB : AA
-{
-};
-
-struct CC : A
-{
-};
-
-template <typename T>
-struct ZZ : T
-{
-};
-
-struct ZZZ : ZZ<const A>
-{
-};
-struct ZZZZ : ZZ<A>
-{
-};
-
-template struct ZZ<const A>;
-
-struct DD : CC
-{
-};
-
-struct EE : AA, A, CC
-{
-};
-
-template<typename T>
-struct D: protected T
-{
-};
-
-template<typename T>
-struct F
-{
-};
-
-template<typename T>
-struct E: F<T>
-{
-    F<A> d;
-};
-
-template<typename T>
-struct G: E<T>
-{
-    virtual void thing(G<T> g)
+    template <Point... T>
+    void fun()
     {
     }
 };
 
 int main()
 {
-    D<A> d;
-    E<A> e;
-    G<A> g;
-    G<B> gg;
+    X x;
+    x.fun<1,2,3,4,5,6>();
+
+    Y y;
+    y.fun<{1,2}, {2,3}>();
 }

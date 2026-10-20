@@ -69,7 +69,7 @@ struct RecordAction: clang::ASTFrontendAction
 
     RecordAction(std::set<Record>& records): records(records) {}
 
-    std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance& compiler, clang::StringRef file) override
+    std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance&, clang::StringRef) override
     {
         return std::make_unique<RecordConsumer>(records);
     }
@@ -94,7 +94,6 @@ void VisitRecords()
     clang::tooling::ClangTool tool = AccessDatabase();
     if(tool.run(&factory) == 0)
     {
-        const std::vector<Record> sorted = Sort(records);
-        Print(sorted);
+        Print(Sorted(records));
     }
 }

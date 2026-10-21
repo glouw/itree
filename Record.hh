@@ -6,34 +6,43 @@
 #include <set>
 #include <vector>
 
-struct Base
+using Color = llvm::raw_string_ostream::Colors;
+
+struct Access
+{
+    clang::AccessSpecifier access;
+
+    Color color() const;
+    std::string str() const;
+    clang::AccessSpecifier inherit(const clang::CXXRecordDecl* derived);
+};
+
+struct Base: Access
 {
     std::string type;
-    clang::AccessSpecifier access;
     bool isVirtual;
 
     Base() = delete;
     Base(const clang::CXXRecordDecl* derived, const clang::CXXBaseSpecifier& base);
 };
 
-struct Field
+struct Field: Access
 {
     std::string type;
     std::string name;
-    clang::AccessSpecifier access;
 
     Field() = delete;
     Field(const clang::CXXRecordDecl* derived, const clang::FieldDecl* field);
-    std::string getSignature() const;
+    Color color() const;
+    std::string signature() const;
 };
 
-struct Method
+struct Method: Access
 {
     std::string returnType;
     std::string name;
     std::vector<std::string> types;
     std::vector<std::string> names;
-    clang::AccessSpecifier access;
     bool isImplicit;
     bool isVirtual;
     bool isPureVirtual;
@@ -44,21 +53,34 @@ struct Method
 
     Method() = delete;
     Method(const clang::CXXRecordDecl* derived, const clang::CXXMethodDecl* method);
-    std::string getSignature() const;
+    Color color() const;
+    std::string signature() const;
 };
 
-struct Record
+struct Record: Access
 {
     std::string name;
     std::vector<Base> bases;
     std::vector<Field> fields;
     std::vector<Method> methods;
+    bool isClass;
 
     Record() = delete;
     Record(const std::string& name): name(name) {}
     Record(const clang::CXXRecordDecl* decl);
     bool operator<(const Record& other) const { return name < other.name; }
-    std::string getSignature() const;
+    Color color() const;
+    std::string signature() const;
+};
+
+struct Child: Access
+{
+    const Record* record;
+    bool isVirtual;
+
+    Child(const Record* record, clang::AccessSpecifier access, bool isVirtual);
+    Color color() const;
+    std::string signature() const;
 };
 
 void Print(const std::vector<Record>& records);

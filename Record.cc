@@ -1,57 +1,103 @@
 #include "Record.hh"
+#include "Options.hh"
 
-#include "clang/AST/PrettyPrinter.h"
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/DeclTemplate.h"
-#include "clang/AST/QualTypeNames.h"
-
+#include <clang/AST/PrettyPrinter.h>
+#include <clang/AST/ASTContext.h>
+#include <clang/AST/DeclTemplate.h>
+#include <clang/AST/QualTypeNames.h>
 #include <map>
 #include <iostream>
 
-static constexpr auto ResetColor = llvm::raw_string_ostream::RESET;
-static constexpr auto FieldColor = llvm::raw_string_ostream::BRIGHT_MAGENTA;
-static constexpr auto PublicColor = llvm::raw_string_ostream::BRIGHT_GREEN;
-static constexpr auto ProtectedColor = llvm::raw_string_ostream::BRIGHT_YELLOW;
-static constexpr auto PrivateColor = llvm::raw_string_ostream::BRIGHT_RED;
-static constexpr auto DefaultColor = llvm::raw_string_ostream::WHITE;
-static constexpr auto ImplicitColor = llvm::raw_string_ostream::BRIGHT_BLACK;
-static constexpr auto VirtualColor = llvm::raw_string_ostream::BRIGHT_CYAN;
-static constexpr auto OverrideColor = llvm::raw_string_ostream::BRIGHT_CYAN;
+using Color = llvm::raw_string_ostream::Colors;
 
-struct Child
+namespace Colors
 {
-    const Record* record;
-    clang::AccessSpecifier access;
-    bool isVirtual;
-    Child(const Record* record, clang::AccessSpecifier access, bool isVirtual): record(record), access(access), isVirtual(isVirtual) {}
-
-    std::string getSignature() const
-    {
-        std::string signature;
-        if(isVirtual)
-        {
-            signature += "virtual";
-            signature += " ";
-        }
-        signature += record->name;
-        return signature;
-    }
+    static constexpr Color Bound = Color::BRIGHT_BLACK;
+    static constexpr Color Explicit = Color::WHITE;
+    static constexpr Color Field = Color::MAGENTA;
+    static constexpr Color Implicit = Color::BRIGHT_BLACK;
+    static constexpr Color Inheritance = Color::BRIGHT_WHITE;
+    static constexpr Color Override = Color::BRIGHT_CYAN;
+    static constexpr Color Private = Color::BRIGHT_RED;
+    static constexpr Color Protected = Color::BRIGHT_YELLOW;
+    static constexpr Color Public = Color::BRIGHT_GREEN;
+    static constexpr Color PureVirtual = Color::BLUE;
+    static constexpr Color Reset = Color::RESET;
+    static constexpr Color Virtual = Color::BRIGHT_BLUE;
 };
 
-static std::string GetTypeName(const clang::CXXRecordDecl* derived, const clang::QualType type)
+namespace Tokens
+{
+    static const std::string Bends = "└── ";
+    static const std::string Bound = "│   ";
+    static const std::string Class = "class";
+    static const std::string Comma = ",";
+    static const std::string Empty = "";
+    static const std::string Explicit = "explicit";
+    static const std::string Implicit = "implicit";
+    static const std::string Junct = "├── ";
+    static const std::string LeftAngleBracket = "<";
+    static const std::string LeftRoundBracket = "(";
+    static const std::string MultipleOverride = "multiple override";
+    static const std::string Newline = "\n";
+    static const std::string OfPureVirtual = "= 0";
+    static const std::string Override = "override";
+    static const std::string Private = "private";
+    static const std::string Protected = "protected";
+    static const std::string Public = "public";
+    static const std::string RiteAngleBracket = ">";
+    static const std::string RiteRoundBracket = ")";
+    static const std::string Semicolon = ";";
+    static const std::string Space = " ";
+    static const std::string Struct = "struct";
+    static const std::string Tab = "    ";
+    static const std::string Virtual = "virtual";
+};
+
+Color Access::color() const
+{
+    switch(access)
+    {
+    case clang::AccessSpecifier::AS_public:
+        return Colors::Public;
+    case clang::AccessSpecifier::AS_protected:
+        return Colors::Protected;
+    case clang::AccessSpecifier::AS_private:
+        return Colors::Private;
+    default:
+        return Colors::Reset;
+    }
+}
+
+Color Method::color() const
+{
+    return isImplicit ? Colors::Implicit
+         : isOverride or isMultipleOverride ? Colors::Override
+         : isPureVirtual ? Colors::PureVirtual
+         : isVirtual ? Colors::Virtual
+         : Colors::Explicit;
+}
+
+Color Record::color() const
+{
+    return isClass ? Colors::Private : Colors::Public;
+}
+
+Color Field::color() const
+{
+    return Colors::Field;
+}
+
+Color Child::color() const
+{
+    return Colors::Inheritance;
+}
+
+static std::string TypeName(const clang::CXXRecordDecl* derived, const clang::QualType type)
 {
     const clang::ASTContext& context = derived->getASTContext();
     clang::PrintingPolicy policy(context.getLangOpts());
     return clang::TypeName::getFullyQualifiedName(type, context, policy);
-}
-
-static clang::AccessSpecifier WrapAccessSpecifier(const clang::AccessSpecifier access, const clang::CXXRecordDecl* derived)
-{
-    if(access == clang::AS_none)
-    {
-        return derived->isClass() ? clang::AS_private : clang::AS_public;
-    }
-    return access;
 }
 
 static std::string ReadTemplateParameters(const clang::CXXRecordDecl* derived, const clang::CXXMethodDecl* method)
@@ -61,9 +107,9 @@ static std::string ReadTemplateParameters(const clang::CXXRecordDecl* derived, c
     std::string parameters;
     if(const clang::TemplateArgumentList* list = method->getTemplateSpecializationArgs())
     {
-        parameters += "<";
+        parameters += Tokens::LeftAngleBracket;
         const auto& args = list->asArray();
-        size_t last = args.size() - 1;
+        const size_t last = args.size() - 1;
         size_t index = 0;
         for(const clang::TemplateArgument& arg: args)
         {
@@ -73,22 +119,61 @@ static std::string ReadTemplateParameters(const clang::CXXRecordDecl* derived, c
             parameters += stream.str();
             if(index != last)
             {
-                parameters += ",";
+                parameters += Tokens::Comma;
             }
             index++;
         }
-        parameters += ">";
+        parameters += Tokens::RiteAngleBracket;
     }
     return parameters;
 }
 
-std::string Method::getSignature() const
+std::string Access::str() const
+{
+    std::string string;
+    if(access == clang::AccessSpecifier::AS_public)
+    {
+        string = Tokens::Public;
+    }
+    if(access == clang::AccessSpecifier::AS_protected)
+    {
+        string = Tokens::Protected;
+    }
+    if(access == clang::AccessSpecifier::AS_private)
+    {
+        string = Tokens::Private;
+    }
+    return string;
+}
+
+std::string Child::signature() const
 {
     std::string signature;
+    signature += Access::str();
+    signature += Tokens::Space;
     if(isVirtual)
     {
-        signature += "virtual";
-        signature += " ";
+        signature += Tokens::Virtual;
+        signature += Tokens::Space;
+    }
+    signature += record->name;
+    return signature;
+}
+
+std::string Method::signature() const
+{
+    std::string signature;
+    if(isImplicit)
+    {
+        signature += Tokens::Implicit;
+        signature += Tokens::Space;
+    }
+    signature += Access::str();
+    signature += Tokens::Space;
+    if(isVirtual)
+    {
+        signature += Tokens::Virtual;
+        signature += Tokens::Space;
     }
     if(isConstructor or isDestructor)
     {
@@ -96,10 +181,10 @@ std::string Method::getSignature() const
     else
     {
         signature += returnType;
-        signature += " ";
+        signature += Tokens::Space;
     }
     signature += name;
-    signature += "(";
+    signature += Tokens::LeftRoundBracket;
     size_t index = 0;
     size_t last = types.size() - 1;
     for(const std::string& type: types)
@@ -108,77 +193,92 @@ std::string Method::getSignature() const
         const std::string fieldName = names[index];
         if(not fieldName.empty())
         {
-            signature += " ";
+            signature += Tokens::Space;
             signature += names[index];
         }
         if(index != last)
         {
-            signature += ",";
-            signature += " ";
+            signature += Tokens::Comma;
+            signature += Tokens::Space;
         }
         index++;
     }
-    signature += ")";
+    signature += Tokens::RiteRoundBracket;
     if(isPureVirtual)
     {
-        signature += " ";
-        signature += "= 0";
+        signature += Tokens::Space;
+        signature += Tokens::OfPureVirtual;
     }
     if(isOverride)
     {
-        signature += " ";
-        signature += "override";
+        signature += Tokens::Space;
+        signature += Tokens::Override;
     }
     if(isMultipleOverride)
     {
-        signature += " ";
-        signature += "override!";
+        signature += Tokens::Space;
+        signature += Tokens::MultipleOverride;
     }
-    signature += ";";
+    signature += Tokens::Semicolon;
     return signature;
 }
 
-std::string Field::getSignature() const
+std::string Field::signature() const
 {
     std::string signature;
+    signature += Access::str();
+    signature += Tokens::Space;
     signature += type;
-    signature += " ";
+    signature += Tokens::Space;
     signature += name;
-    signature += ";";
+    signature += Tokens::Semicolon;
     return signature;
 }
 
-std::string Record::getSignature() const
+std::string Record::signature() const
 {
     std::string signature;
+    signature += isClass ? Tokens::Class : Tokens::Struct;
+    signature += Tokens::Space;
     signature += name;
     return signature;
 }
 
-Base::Base(const clang::CXXRecordDecl* derived, const clang::CXXBaseSpecifier& base)
+clang::AccessSpecifier Access::inherit(const clang::CXXRecordDecl* derived)
 {
-    type = GetTypeName(derived, base.getType().getCanonicalType());
-    access = WrapAccessSpecifier(base.getAccessSpecifier(), derived);
-    isVirtual = base.isVirtual();
+    if(access == clang::AS_none)
+    {
+        return derived->isClass() ? clang::AS_private : clang::AS_public;
+    }
+    return access;
+}
+
+Child::Child(const Record* record, clang::AccessSpecifier access, const bool isVirtual)
+{
+    this->record = record;
+    this->access = access;
+    this->isVirtual = isVirtual;
 }
 
 Field::Field(const clang::CXXRecordDecl* derived, const clang::FieldDecl* field)
 {
-    type = GetTypeName(derived, field->getType().getCanonicalType());
+    type = TypeName(derived, field->getType());
     name = field->getName();
-    access = WrapAccessSpecifier(field->getAccess(), derived);
+    access = field->getAccess();
+    Access::inherit(derived);
 }
 
 Method::Method(const clang::CXXRecordDecl* derived, const clang::CXXMethodDecl* method)
 {
-    returnType = GetTypeName(derived, method->getReturnType().getCanonicalType());
+    returnType = TypeName(derived, method->getReturnType());
     for(const clang::ParmVarDecl* param: method->parameters())
     {
-        types.push_back(GetTypeName(derived, param->getType().getCanonicalType()));
+        types.push_back(TypeName(derived, param->getType()));
         names.push_back(param->getName().str());
     }
     name = method->getNameAsString() + ReadTemplateParameters(derived, method);
-    access = WrapAccessSpecifier(method->getAccess(), derived);
+    access = method->getAccess();
+    Access::inherit(derived);
     isImplicit = method->isImplicit();
     isVirtual = method->isVirtual();
     isPureVirtual = method->isPureVirtual();
@@ -188,14 +288,24 @@ Method::Method(const clang::CXXRecordDecl* derived, const clang::CXXMethodDecl* 
     isDestructor = llvm::isa<clang::CXXDestructorDecl>(method);
 }
 
+Base::Base(const clang::CXXRecordDecl* derived, const clang::CXXBaseSpecifier& base)
+{
+    type = TypeName(derived, base.getType().getCanonicalType());
+    access = base.getAccessSpecifier();
+    Access::inherit(derived);
+    isVirtual = base.isVirtual();
+}
+
 Record::Record(const clang::CXXRecordDecl* derived)
 {
-    name = GetTypeName(derived, derived->getASTContext().getCanonicalTagType(derived));
+    name = TypeName(derived, derived->getASTContext().getCanonicalTagType(derived));
+    isClass = derived->isClass();
+    access = isClass ? clang::AS_private : clang::AS_public;
     for(const clang::CXXBaseSpecifier& base: derived->bases())
     {
         bases.push_back(Base(derived, base));
     }
-    for (const clang::FieldDecl* field: derived->fields())
+    for(const clang::FieldDecl* field: derived->fields())
     {
         fields.push_back(Field(derived, field));
     }
@@ -203,7 +313,14 @@ Record::Record(const clang::CXXRecordDecl* derived)
     {
         if(const clang::CXXMethodDecl* method = llvm::dyn_cast<clang::CXXMethodDecl>(decl))
         {
-            methods.push_back(Method(derived, method));
+            const Method self = Method(derived, method);
+            if(self.isImplicit)
+            {
+                if(Options::CollectImplicits)
+                {
+                    methods.push_back(self);
+                }
+            }
         }
         else
         if(const clang::FunctionTemplateDecl* functionTemplate = llvm::dyn_cast<clang::FunctionTemplateDecl>(decl))
@@ -219,148 +336,133 @@ Record::Record(const clang::CXXRecordDecl* derived)
     }
 }
 
-static llvm::raw_ostream::Colors AccessColor(const clang::AccessSpecifier access)
+struct Printer
 {
-    if(access == clang::AccessSpecifier::AS_public)
-    {
-        return PublicColor;
-    }
-    if(access == clang::AccessSpecifier::AS_protected)
-    {
-        return ProtectedColor;
-    }
-    if(access == clang::AccessSpecifier::AS_private)
-    {
-        return PrivateColor;
-    }
-    return ResetColor;
-}
-
-static std::string Colored(const std::string& in, const llvm::raw_ostream::Colors color)
-{
-    std::string string;
-    llvm::raw_string_ostream stream(string);
-    stream.enable_colors(true);
-    stream.changeColor(color);
-    stream << in;
-    stream.resetColor();
-    stream.flush();
-    return string;
-}
-
-static void Print(const Record& record, const std::map<std::string, std::vector<Child>>& children, std::set<const Record*>& seen, const std::string& prefix)
-{
-    const auto it = children.find(record.name);
-    const bool canPrint = seen.count(&record) == 0;
-    const bool hasChildren = it != children.end();
-    const size_t memberTotal = canPrint ? (record.fields.size() + record.methods.size()) : 0;
-    const size_t childTotal = hasChildren ? it->second.size() : 0;
-    const size_t total = memberTotal + childTotal;
-    size_t index = 0;
-    if(canPrint)
-    {
-        seen.insert(&record);
-        for(const Field& field: record.fields)
-        {
-            const bool last = index == total - 1;
-            const std::string left = last ? "└── " : "├── ";
-            llvm::outs()
-                << Colored(prefix, FieldColor)
-                << Colored(left, AccessColor(field.access))
-                << Colored(field.getSignature(), FieldColor)
-                << '\n';
-            index++;
-        }
-        for(const Method& method: record.methods)
-        {
-            const bool last = index == total - 1;
-            const std::string left = last ? "└── " : "├── ";
-            llvm::outs()
-                << Colored(prefix, DefaultColor)
-                << Colored(left, AccessColor(method.access))
-                << Colored(method.getSignature(),
-                        method.isImplicit ? ImplicitColor :
-                        method.isPureVirtual ? VirtualColor:
-                        method.isVirtual ? VirtualColor :
-                        method.isOverride ? OverrideColor :
-                        DefaultColor)
-                << '\n';
-            index++;
-        }
-    }
-    if(hasChildren)
-    {
-        const auto& kids = it->second;
-        for(const Child& child: kids)
-        {
-            const bool last = index == total - 1;
-            const std::string left = last ? "└── " : "├── ";
-            const std::string rite = last ? "    " : "│   ";
-            llvm::outs()
-                << Colored(prefix, DefaultColor)
-                << Colored(left, AccessColor(child.access))
-                << Colored(child.getSignature(), DefaultColor)
-                << '\n';
-            Print(*child.record, children, seen, prefix + rite);
-            index++;
-        }
-    }
-}
-
-static void Print(const Record& record, const std::map<std::string, std::vector<Child>>& children)
-{
-    llvm::outs() << Colored(record.getSignature(), DefaultColor) << '\n';
+    std::map<std::string, std::vector<Child>> children;
+    std::vector<const Record*> roots;
     std::set<const Record*> seen;
-    Print(record, children, seen, "");
-}
+
+    std::string buffer;
+    llvm::raw_string_ostream stream = llvm::raw_string_ostream(buffer);
+
+    Printer(const std::vector<Record>& records, const bool withColor = true)
+    {
+        for(const Record& record: records)
+        {
+            for(const Base& base: record.bases)
+            {
+                const Child child(&record, base.access, base.isVirtual);
+                children[base.type].push_back(child);
+            }
+        }
+        for(const Record& record: records)
+        {
+            if(record.bases.empty())
+            {
+                roots.push_back(&record);
+            }
+        }
+        stream.enable_colors(withColor);
+    }
+
+    template <typename T>
+    void print(const T& value, const std::string& prefix, const std::string& rite)
+    {
+        stream << Colors::Bound << prefix << value.Access::color() << rite << value.color() << value.signature() << Colors::Reset << Tokens::Newline;
+    }
+
+    void flush()
+    {
+        stream.flush();
+        llvm::outs() << buffer << Tokens::Newline;
+        buffer.clear();
+    }
+
+    void print(const Record& record, const std::string& prefix)
+    {
+        const auto it = children.find(record.name);
+        const bool canPrint = seen.count(&record) == 0;
+        const bool hasChildren = it != children.end();
+        const size_t memberTotal = canPrint ? (record.fields.size() + record.methods.size()) : 0;
+        const size_t childTotal = hasChildren ? it->second.size() : 0;
+        const size_t total = memberTotal + childTotal;
+        size_t index = 0;
+        auto last = [&index, &total]() { return index == total - 1; };
+        if(canPrint)
+        {
+            seen.insert(&record);
+            for(const auto& value: record.fields)
+            {
+                print(value, prefix, last() ? Tokens::Bends : Tokens::Junct);
+                index++;
+            }
+            for(const auto& value: record.methods)
+            {
+                print(value, prefix, last() ? Tokens::Bends : Tokens::Junct);
+                index++;
+            }
+        }
+        if(hasChildren)
+        {
+            const auto& kids = it->second;
+            for(const Child& child: kids)
+            {
+                const std::string left = last() ? Tokens::Tab   : Tokens::Bound;
+                const std::string rite = last() ? Tokens::Bends : Tokens::Junct;
+                print(child, prefix, rite);
+                print(*child.record, prefix + left);
+                index++;
+            }
+        }
+    }
+
+    void print(const Record& record)
+    {
+        print(record, Tokens::Space, Tokens::Empty);
+        print(record, Tokens::Space);
+        flush();
+    }
+};
+
+struct Sorter
+{
+    const std::set<Record>& records;
+    std::set<std::string> visited;
+    std::vector<Record> result;
+
+    Sorter(const std::set<Record>& records): records(records) {}
+
+    void sort(const Record& record)
+    {
+        if(visited.insert(record.name).second)
+        {
+            for(const Base& base: record.bases)
+            {
+                if(auto it = records.find(Record(base.type)); it != records.end())
+                {
+                    sort(*it);
+                }
+            }
+            result.push_back(record);
+        }
+    }
+};
 
 void Print(const std::vector<Record>& records)
 {
-    std::map<std::string, std::vector<Child>> children;
-    for(const Record& record: records)
+    Printer printer(records);
+    for(const Record* root: printer.roots)
     {
-        for(const Base& base: record.bases)
-        {
-            const Child child(&record, base.access, base.isVirtual);
-            children[base.type].push_back(child);
-        }
-    }
-    std::vector<const Record*> roots;
-    for(const Record& record: records)
-    {
-        if(record.bases.empty())
-        {
-            roots.push_back(&record);
-        }
-    }
-    for(const Record* root: roots)
-    {
-        Print(*root, children);
-    }
-}
-
-static void Sort(const std::set<Record>& records, const Record& record, std::set<std::string>& visited, std::vector<Record>& result)
-{
-    if(visited.insert(record.name).second)
-    {
-        for(const Base& base: record.bases)
-        {
-            if(auto it = records.find(Record(base.type)); it != records.end())
-            {
-                Sort(records, *it, visited, result);
-            }
-        }
-        result.push_back(record);
+        printer.print(*root);
     }
 }
 
 std::vector<Record> Sorted(const std::set<Record>& records)
 {
-    std::vector<Record> result;
-    std::set<std::string> visited;
+    Sorter sorter(records);
     for(const Record& record: records)
     {
-        Sort(records, record, visited, result);
+        sorter.sort(record);
     }
-    return result;
+    return sorter.result;
 }

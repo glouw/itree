@@ -18,7 +18,11 @@ struct RecordVisitor: clang::RecursiveASTVisitor<RecordVisitor>
 
     bool VisitCXXRecordDecl(clang::CXXRecordDecl* decl)
     {
-        if(!decl->isThisDeclarationADefinition())
+        if(decl->getASTContext().getSourceManager().isInSystemHeader(decl->getLocation()))
+        {
+            return true;
+        }
+        if(not decl->isThisDeclarationADefinition())
         {
             return true;
         }
@@ -26,11 +30,7 @@ struct RecordVisitor: clang::RecursiveASTVisitor<RecordVisitor>
         {
             return true;
         }
-        if(!decl->getIdentifier())
-        {
-            return true;
-        }
-        if(decl->getASTContext().getSourceManager().isInSystemHeader(decl->getLocation()))
+        if(not decl->getIdentifier())
         {
             return true;
         }

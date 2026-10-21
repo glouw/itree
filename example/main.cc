@@ -1,62 +1,57 @@
 #include <iostream>
-#include <utility>
 
-struct Point
-{
-    int x;
-    int y;
+struct A {
+    virtual void foo() {
+        std::cout << "A::foo\n";
+    }
+
+    virtual ~A() = default;
 };
 
-struct A
-{
-};
-
-struct Base : A
-{
-protected:
-    void test()
-    {
+struct B : virtual A {
+    void foo() override {
+        std::cout << "B::foo\n";
     }
 };
 
-class X: Base, A
-{
-    void test()
-    {
-    }
-
-    void other()
-    {
-    }
-
-    void thing()
-    {
-    }
-
-public:
-    template <int... T>
-    void fun()
-    {
+struct C : virtual A {
+    void foo() override {
+        std::cout << "C::foo\n";
     }
 };
 
-class YY : X
-{
-};
-
-struct Y
-{
-    template <Point... T>
-    void fun()
-    {
+struct D : B, C {
+    void foo() override {
+        std::cout << "D::foo\n";
     }
 };
 
-int main()
-{
-    X x;
-    x.fun<1,2,3,4,5,6>();
+struct E : virtual A {
+    void foo() override {
+        std::cout << "E::foo\n";
+    }
+};
 
-    Y y;
-    y.fun<{1,2}, {2,3}>();
+struct F : D, E {
+    void foo() override {
+        std::cout << "F::foo\n";
+    }
+};
+
+int main() {
+    F obj;
+
+    A* a = &obj;
+    B* b = &obj;
+    C* c = &obj;
+    D* d = &obj;
+    E* e = &obj;
+    F* f = &obj;
+
+    a->foo();
+    b->foo();
+    c->foo();
+    d->foo();
+    e->foo();
+    f->foo();
 }

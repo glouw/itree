@@ -2,4 +2,7 @@
 
 #include <clang/Tooling/Tooling.h>
 
-clang::tooling::ClangTool AccessDatabase();
+namespace Database
+{
+clang::tooling::ClangTool Access();
+}

@@ -1,3 +1,6 @@
 #pragma once
 
-void VisitRecords();
+namespace RecordVisitor
+{
+void Visit();
+}

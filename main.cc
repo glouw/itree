@@ -4,5 +4,5 @@
 int main(int argc, const char* argv[])
 {
     Options::Collect(argc, argv);
-    VisitRecords();
+    RecordVisitor::Visit();
 }

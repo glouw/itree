@@ -5,11 +5,13 @@
 
 #include <clang/AST/RecursiveASTVisitor.h>
 
-struct RecordVisitor: clang::RecursiveASTVisitor<RecordVisitor>
+namespace RecordVisitor
 {
-    std::set<Record>& records;
+struct Visitor: clang::RecursiveASTVisitor<Visitor>
+{
+    std::set<Record::Record>& records;
 
-    RecordVisitor(std::set<Record>& records): records(records) {}
+    Visitor(std::set<Record::Record>& records): records(records) {}
 
     bool shouldVisitTemplateInstantiations() const
     {
@@ -46,16 +48,16 @@ struct RecordVisitor: clang::RecursiveASTVisitor<RecordVisitor>
                 return true;
             }
         }
-        records.insert(Record(decl));
+        records.insert(Record::Record(decl));
         return true;
     }
 };
 
-struct RecordConsumer: clang::ASTConsumer
+struct Consumer: clang::ASTConsumer
 {
-    RecordVisitor visitor;
+    Visitor visitor;
 
-    RecordConsumer(std::set<Record>& records): visitor(records) {}
+    Consumer(std::set<Record::Record>& records): visitor(records) {}
 
     void HandleTranslationUnit(clang::ASTContext& context) override
     {
@@ -63,37 +65,38 @@ struct RecordConsumer: clang::ASTConsumer
     }
 };
 
-struct RecordAction: clang::ASTFrontendAction
+struct Action: clang::ASTFrontendAction
 {
-    std::set<Record>& records;
+    std::set<Record::Record>& records;
 
-    RecordAction(std::set<Record>& records): records(records) {}
+    Action(std::set<Record::Record>& records): records(records) {}
 
     std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(clang::CompilerInstance&, clang::StringRef) override
     {
-        return std::make_unique<RecordConsumer>(records);
+        return std::make_unique<Consumer>(records);
     }
 };
 
-struct RecordActionFactory: clang::tooling::FrontendActionFactory
+struct ActionFactory: clang::tooling::FrontendActionFactory
 {
-    std::set<Record>& records;
+    std::set<Record::Record>& records;
 
-    RecordActionFactory(std::set<Record>& records): records(records) {}
+    ActionFactory(std::set<Record::Record>& records): records(records) {}
 
     std::unique_ptr<clang::FrontendAction> create() override
     {
-        return std::make_unique<RecordAction>(records);
+        return std::make_unique<Action>(records);
     }
 };
 
-void VisitRecords()
+void Visit()
 {
-    std::set<Record> records;
-    RecordActionFactory factory(records);
-    clang::tooling::ClangTool tool = AccessDatabase();
+    std::set<Record::Record> records;
+    ActionFactory factory(records);
+    clang::tooling::ClangTool tool = Database::Access();
     if(tool.run(&factory) == 0)
     {
         Print(Sorted(records));
     }
+}
 }

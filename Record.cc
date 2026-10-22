@@ -8,8 +8,8 @@
 #include <map>
 #include <iostream>
 
-using Color = llvm::raw_string_ostream::Colors;
-
+namespace Record
+{
 namespace Colors
 {
     static constexpr Color Bound = Color::BRIGHT_BLACK;
@@ -52,6 +52,7 @@ namespace Tokens
     static const std::string Struct = "struct";
     static const std::string Tab = "    ";
     static const std::string Virtual = "virtual";
+    static const std::string ExtendsWith = "extends with";
 };
 
 Color Access::color() const
@@ -149,6 +150,8 @@ std::string Access::str() const
 std::string Child::signature() const
 {
     std::string signature;
+    signature += Tokens::ExtendsWith;
+    signature += Tokens::Space;
     signature += Access::str();
     signature += Tokens::Space;
     if(isVirtual)
@@ -314,13 +317,11 @@ Record::Record(const clang::CXXRecordDecl* derived)
         if(const clang::CXXMethodDecl* method = llvm::dyn_cast<clang::CXXMethodDecl>(decl))
         {
             const Method self = Method(derived, method);
-            if(self.isImplicit)
+            if(self.isImplicit and not Options::CollectImplicits)
             {
-                if(Options::CollectImplicits)
-                {
-                    methods.push_back(self);
-                }
+                continue;
             }
+            methods.push_back(self);
         }
         else
         if(const clang::FunctionTemplateDecl* functionTemplate = llvm::dyn_cast<clang::FunctionTemplateDecl>(decl))
@@ -368,7 +369,15 @@ struct Printer
     template <typename T>
     void print(const T& value, const std::string& prefix, const std::string& rite)
     {
-        stream << Colors::Bound << prefix << value.Access::color() << rite << value.color() << value.signature() << Colors::Reset << Tokens::Newline;
+        stream
+            << Colors::Bound
+            << prefix
+            << value.Access::color()
+            << rite
+            << value.color()
+            << value.signature()
+            << Colors::Reset
+            << Tokens::Newline;
     }
 
     void flush()
@@ -387,7 +396,7 @@ struct Printer
         const size_t childTotal = hasChildren ? it->second.size() : 0;
         const size_t total = memberTotal + childTotal;
         size_t index = 0;
-        auto last = [&index, &total]() { return index == total - 1; };
+        const auto last = [&index, &total]() { return index == total - 1; };
         if(canPrint)
         {
             seen.insert(&record);
@@ -465,4 +474,5 @@ std::vector<Record> Sorted(const std::set<Record>& records)
         sorter.sort(record);
     }
     return sorter.result;
+}
 }

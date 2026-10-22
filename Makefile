@@ -18,3 +18,4 @@ $(BIN): $(OBJ)
 .PHONY: clean
 clean:
 	rm -f $(OBJ) $(DEP) $(BIN)
+	make clean -C example

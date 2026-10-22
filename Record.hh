@@ -6,6 +6,8 @@
 #include <set>
 #include <vector>
 
+namespace Record
+{
 using Color = llvm::raw_string_ostream::Colors;
 
 struct Access
@@ -78,11 +80,15 @@ struct Child: Access
     const Record* record;
     bool isVirtual;
 
+    Child() = delete;
     Child(const Record* record, clang::AccessSpecifier access, bool isVirtual);
     Color color() const;
     std::string signature() const;
 };
 
+void Print(const std::vector<Record>& records, const std::vector<const Record*>& roots);
+
 void Print(const std::vector<Record>& records);
 
 std::vector<Record> Sorted(const std::set<Record>& records);
+}

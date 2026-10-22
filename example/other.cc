@@ -1,7 +1,17 @@
-//struct AAA
-//{
-//};
-//
-//struct BBB : AAA
-//{
-//};
+struct Test
+{
+    void fun()
+    {
+         int x;
+    }
+
+    void other()
+    {
+    }
+};
+
+int test()
+{
+    Test x;
+    x.fun();
+}

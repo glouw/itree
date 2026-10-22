@@ -77,6 +77,7 @@ struct Record: Access
 
 struct Child: Access
 {
+    std::string name;
     const Record* record;
     bool isVirtual;
 
@@ -86,9 +87,22 @@ struct Child: Access
     std::string signature() const;
 };
 
-void Print(const std::vector<Record>& records, const std::vector<const Record*>& roots);
+struct Sorter
+{
+    const std::set<Record>& records;
+    std::set<std::string> visited;
+    std::vector<Record> result;
+    std::map<std::string, std::vector<Child>> children;
+    std::vector<const Record*> roots;
+    std::map<std::string, std::set<const Record*>> rootsTo;
 
-void Print(const std::vector<Record>& records);
+    Sorter() = delete;
+    Sorter(const std::set<Record>& records): records(records) {}
+    void sort(const Record& record);
+    void sort();
+    void collectRootsTo(const Record* root, const Record* record);
+};
 
-std::vector<Record> Sorted(const std::set<Record>& records);
+void Print(const Sorter& sorter);
+void Print(const Sorter& sorter, const std::string& name);
 }

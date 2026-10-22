@@ -16,14 +16,16 @@ namespace Colors
     static constexpr Color Explicit = Color::WHITE;
     static constexpr Color Field = Color::MAGENTA;
     static constexpr Color Implicit = Color::BRIGHT_BLACK;
-    static constexpr Color Inheritance = Color::BRIGHT_WHITE;
+    static constexpr Color Child = Color::BRIGHT_WHITE;
+    static constexpr Color Record = Color::BRIGHT_WHITE;
     static constexpr Color Override = Color::BRIGHT_CYAN;
     static constexpr Color Private = Color::BRIGHT_RED;
-    static constexpr Color Protected = Color::BRIGHT_YELLOW;
+    static constexpr Color Protected = Color::BRIGHT_BLUE;
     static constexpr Color Public = Color::BRIGHT_GREEN;
-    static constexpr Color PureVirtual = Color::BLUE;
+    static constexpr Color PureVirtual = Color::CYAN;
     static constexpr Color Reset = Color::RESET;
-    static constexpr Color Virtual = Color::BRIGHT_BLUE;
+    static constexpr Color Virtual = Color::BRIGHT_CYAN;
+    static constexpr Color Highlight = Color::BRIGHT_YELLOW;
 };
 
 namespace Tokens
@@ -81,7 +83,7 @@ Color Method::color() const
 
 Color Record::color() const
 {
-    return isClass ? Colors::Private : Colors::Public;
+    return Colors::Record;
 }
 
 Color Field::color() const
@@ -91,7 +93,7 @@ Color Field::color() const
 
 Color Child::color() const
 {
-    return Colors::Inheritance;
+    return Colors::Child;
 }
 
 static std::string TypeName(const clang::CXXRecordDecl* derived, const clang::QualType type)
@@ -258,6 +260,7 @@ clang::AccessSpecifier Access::inherit(const clang::CXXRecordDecl* derived)
 
 Child::Child(const Record* record, clang::AccessSpecifier access, const bool isVirtual)
 {
+    this->name = record->name;
     this->record = record;
     this->access = access;
     this->isVirtual = isVirtual;
@@ -337,47 +340,74 @@ Record::Record(const clang::CXXRecordDecl* derived)
     }
 }
 
+void Sorter::sort(const Record& record)
+{
+    if(visited.insert(record.name).second)
+    {
+        for(const Base& base: record.bases)
+        {
+            if(auto iterator = records.find(Record(base.type)); iterator != records.end())
+            {
+                sort(*iterator);
+            }
+        }
+        result.push_back(record);
+    }
+}
+
+void Sorter::collectRootsTo(const Record* root, const Record* record)
+{
+    rootsTo[record->name].insert(root);
+    const auto iterator = children.find(record->name);
+    const bool hasChildren = iterator != children.end();
+    if(hasChildren)
+    {
+        const std::vector<Child>& kids = iterator->second;
+        for(const Child& child: kids)
+        {
+            collectRootsTo(root, child.record);
+        }
+    }
+}
+
+void Sorter::sort()
+{
+    for(const Record& record: records)
+    {
+        sort(record);
+    }
+    for(const Record& record: result)
+    {
+        for(const Base& base: record.bases)
+        {
+            const Child child(&record, base.access, base.isVirtual);
+            children[base.type].push_back(child);
+        }
+    }
+    for(const Record& record: result)
+    {
+        if(record.bases.empty())
+        {
+            roots.push_back(&record);
+        }
+    }
+    for(const Record* root: roots)
+    {
+        collectRootsTo(root, root);
+    }
+}
+
 struct Printer
 {
-    std::map<std::string, std::vector<Child>> children;
-    std::vector<const Record*> roots;
+    const Sorter& sorter;
     std::set<const Record*> seen;
-
     std::string buffer;
     llvm::raw_string_ostream stream = llvm::raw_string_ostream(buffer);
+    std::string highlight;
 
-    Printer(const std::vector<Record>& records, const bool withColor = true)
+    Printer(const Sorter& sorter, const std::string highlight = "", const bool withColor = true): sorter(sorter), highlight(highlight)
     {
-        for(const Record& record: records)
-        {
-            for(const Base& base: record.bases)
-            {
-                const Child child(&record, base.access, base.isVirtual);
-                children[base.type].push_back(child);
-            }
-        }
-        for(const Record& record: records)
-        {
-            if(record.bases.empty())
-            {
-                roots.push_back(&record);
-            }
-        }
         stream.enable_colors(withColor);
-    }
-
-    template <typename T>
-    void print(const T& value, const std::string& prefix, const std::string& rite)
-    {
-        stream
-            << Colors::Bound
-            << prefix
-            << value.Access::color()
-            << rite
-            << value.color()
-            << value.signature()
-            << Colors::Reset
-            << Tokens::Newline;
     }
 
     void flush()
@@ -387,13 +417,28 @@ struct Printer
         buffer.clear();
     }
 
+    template <typename T>
+    void print(const T& value, const std::string& prefix, const std::string& rite)
+    {
+        const Color color = value.name == highlight ? Colors::Highlight : value.color();
+        stream
+            << Colors::Bound
+            << prefix
+            << value.Access::color()
+            << rite
+            << color
+            << value.signature()
+            << Colors::Reset
+            << Tokens::Newline;
+    }
+
     void print(const Record& record, const std::string& prefix)
     {
-        const auto it = children.find(record.name);
+        const auto iterator = sorter.children.find(record.name);
+        const bool hasChildren = iterator != sorter.children.end();
         const bool canPrint = seen.count(&record) == 0;
-        const bool hasChildren = it != children.end();
         const size_t memberTotal = canPrint ? (record.fields.size() + record.methods.size()) : 0;
-        const size_t childTotal = hasChildren ? it->second.size() : 0;
+        const size_t childTotal = hasChildren ? iterator->second.size() : 0;
         const size_t total = memberTotal + childTotal;
         size_t index = 0;
         const auto last = [&index, &total]() { return index == total - 1; };
@@ -413,8 +458,8 @@ struct Printer
         }
         if(hasChildren)
         {
-            const auto& kids = it->second;
-            for(const Child& child: kids)
+            const std::vector<Child>& children = iterator->second;
+            for(const Child& child: children)
             {
                 const std::string left = last() ? Tokens::Tab   : Tokens::Bound;
                 const std::string rite = last() ? Tokens::Bends : Tokens::Junct;
@@ -433,46 +478,25 @@ struct Printer
     }
 };
 
-struct Sorter
+void Print(const Sorter& sorter)
 {
-    const std::set<Record>& records;
-    std::set<std::string> visited;
-    std::vector<Record> result;
-
-    Sorter(const std::set<Record>& records): records(records) {}
-
-    void sort(const Record& record)
-    {
-        if(visited.insert(record.name).second)
-        {
-            for(const Base& base: record.bases)
-            {
-                if(auto it = records.find(Record(base.type)); it != records.end())
-                {
-                    sort(*it);
-                }
-            }
-            result.push_back(record);
-        }
-    }
-};
-
-void Print(const std::vector<Record>& records)
-{
-    Printer printer(records);
-    for(const Record* root: printer.roots)
+    Printer printer(sorter);
+    for(const Record* root: sorter.roots)
     {
         printer.print(*root);
     }
 }
 
-std::vector<Record> Sorted(const std::set<Record>& records)
+void Print(const Sorter& sorter, const std::string& name)
 {
-    Sorter sorter(records);
-    for(const Record& record: records)
+    Printer printer(sorter, name);
+    if(sorter.rootsTo.count(name) != 0)
     {
-        sorter.sort(record);
+        const std::set<const Record*>& roots = sorter.rootsTo.at(name);
+        for(const Record* root: roots)
+        {
+            printer.print(*root);
+        }
     }
-    return sorter.result;
 }
 }

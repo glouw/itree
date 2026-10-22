@@ -4,6 +4,7 @@
 #include "Record.hh"
 
 #include <clang/AST/RecursiveASTVisitor.h>
+#include <iostream>
 
 namespace RecordVisitor
 {
@@ -96,7 +97,25 @@ void Visit()
     clang::tooling::ClangTool tool = Database::Access();
     if(tool.run(&factory) == 0)
     {
-        Print(Sorted(records));
+        Record::Sorter sorter(records);
+        sorter.sort();
+        while(true)
+        {
+            llvm::outs() << ">>";
+            llvm::outs().flush();
+            std::string line;
+            std::getline(std::cin, line);
+            if(std::cin)
+            {
+                Print(sorter, line);
+            }
+            else
+            {
+                llvm::outs() << "\n";
+                llvm::outs().flush();
+                break;
+            }
+        }
     }
 }
 }

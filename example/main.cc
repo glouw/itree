@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <utility>
 
+namespace K
+{
 // ============================================================
 // 1. Shared virtual root
 // ============================================================
@@ -332,6 +334,25 @@ void transact(IJournal& journal) {
     journal.begin_transaction();
     // TODO: mutate metadata
     journal.commit_transaction();
+}
+}
+
+using namespace K;
+
+namespace Test
+{
+struct Other
+{
+};
+
+struct Thing : Other
+{
+    void fun(int);
+};
+
+void Thing::fun(int name)
+{
+}
 }
 
 int main() {

@@ -34,9 +34,14 @@ struct Database
     }
 };
 
-clang::tooling::ClangTool Access()
+Database& Instance()
 {
     static Database database;
-    return database.access();
+    return database;
+}
+
+clang::tooling::CompilationDatabase& Handle()
+{
+    return *Instance().handle;
 }
 }

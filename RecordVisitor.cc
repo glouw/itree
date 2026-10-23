@@ -2,8 +2,8 @@
 
 #include "Database.hh"
 #include "Record.hh"
-
 #include <clang/AST/RecursiveASTVisitor.h>
+#include <clang/Tooling/AllTUsExecution.h>
 #include <iostream>
 
 namespace RecordVisitor
@@ -93,28 +93,30 @@ struct ActionFactory: clang::tooling::FrontendActionFactory
 void Visit()
 {
     std::set<Record::Record> records;
-    ActionFactory factory(records);
-    clang::tooling::ClangTool tool = Database::Access();
-    if(tool.run(&factory) == 0)
+    clang::tooling::AllTUsToolExecutor executor(Database::Handle(), 0);
+    llvm::Error error = executor.execute(std::make_unique<ActionFactory>(records));
+    if(error)
     {
-        Record::Sorter sorter(records);
-        sorter.sort();
-        while(true)
+        llvm::errs() << llvm::toString(std::move(error)) << "\n";
+        return;
+    }
+    Record::Sorter sorter(records);
+    sorter.sort();
+    while(true)
+    {
+        llvm::outs() << ">>";
+        llvm::outs().flush();
+        std::string line;
+        std::getline(std::cin, line);
+        if(std::cin)
         {
-            llvm::outs() << ">>";
+            Print(sorter, line);
+        }
+        else
+        {
+            llvm::outs() << "\n";
             llvm::outs().flush();
-            std::string line;
-            std::getline(std::cin, line);
-            if(std::cin)
-            {
-                Print(sorter, line);
-            }
-            else
-            {
-                llvm::outs() << "\n";
-                llvm::outs().flush();
-                break;
-            }
+            break;
         }
     }
 }

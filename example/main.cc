@@ -23,6 +23,7 @@ struct KernelObject {
 // 2. Independent interfaces
 // ============================================================
 
+template <typename T>
 struct IFileSystem : virtual public KernelObject {
     virtual bool mount(const std::string&) = 0;
     virtual void unmount() = 0;
@@ -109,7 +110,7 @@ public:
 // ============================================================
 
 class FilesystemCore
-    : public IFileSystem
+    : public IFileSystem<int>
     , public IBlockDevice
     , public IJournal
     , public IMountable
@@ -324,7 +325,8 @@ void inspect(KernelObject& object) {
     // object.shutdown();
 }
 
-void operate(IFileSystem& fs) {
+template <typename T>
+void operate(IFileSystem<T>& fs) {
     fs.mount("device0");
     fs.exists("/etc/config");
     fs.unmount();
@@ -355,11 +357,22 @@ void Thing::fun(int name)
 }
 }
 
+namespace XXX
+{
+template <typename T>
+struct Func
+{
+};
+
+template struct Func<int>;
+template struct Func<double>;
+}
+
 int main() {
     SnapshotFilesystem fs;
 
     KernelObject& root = fs;
-    IFileSystem& filesystem = fs;
+    IFileSystem<int>& filesystem = fs;
     IBlockDevice& device = fs;
     IJournal& journal = fs;
     ISnapshotSupport& snapshots = fs;

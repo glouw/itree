@@ -4,5 +4,5 @@
 
 namespace Database
 {
-clang::tooling::CompilationDatabase& Handle();
+    clang::tooling::CompilationDatabase& Handle();
 }

@@ -2,5 +2,5 @@
 
 namespace RecordVisitor
 {
-void Visit();
+    void Visit();
 }

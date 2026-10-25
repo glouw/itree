@@ -5,43 +5,43 @@
 
 namespace Database
 {
-struct Database
-{
-    std::unique_ptr<clang::tooling::CompilationDatabase> handle;
-    const std::string path = ".";
-    const std::string noDatabaseFound =
-        "compilation_database.json not found\n"
-        "Do you use make? Generate one with `bear -- make`,\n"
-        "Do you use CMake? Use `cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`\n"
-        "Then, in either or, be sure to specify your std:: system include path:\n"
-        "\teg: -isystem /path/to/your/c++/std/library"
-    ;
-
-    Database()
+    struct Database
     {
-        std::string error;
-        handle = clang::tooling::JSONCompilationDatabase::loadFromDirectory(path, error);
-        if(not handle)
+        std::unique_ptr<clang::tooling::CompilationDatabase> handle;
+        const std::string path = ".";
+        const std::string noDatabaseFound =
+            "compilation_database.json not found\n"
+            "Do you use make? Generate one with `bear -- make`,\n"
+            "Do you use CMake? Use `cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`\n"
+            "Then, in either or, be sure to specify your std:: system include path:\n"
+            "\teg: -isystem /path/to/your/c++/std/library"
+        ;
+
+        Database()
         {
-            std::cerr << noDatabaseFound << std::endl;
-            std::exit(1);
+            std::string error;
+            handle = clang::tooling::JSONCompilationDatabase::loadFromDirectory(path, error);
+            if(not handle)
+            {
+                std::cerr << noDatabaseFound << std::endl;
+                std::exit(1);
+            }
         }
-    }
 
-    clang::tooling::ClangTool access()
+        clang::tooling::ClangTool access()
+        {
+            return clang::tooling::ClangTool(*handle, handle->getAllFiles());
+        }
+    };
+
+    Database& Instance()
     {
-        return clang::tooling::ClangTool(*handle, handle->getAllFiles());
+        static Database database;
+        return database;
     }
-};
 
-Database& Instance()
-{
-    static Database database;
-    return database;
-}
-
-clang::tooling::CompilationDatabase& Handle()
-{
-    return *Instance().handle;
-}
+    clang::tooling::CompilationDatabase& Handle()
+    {
+        return *Instance().handle;
+    }
 }

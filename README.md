@@ -36,7 +36,7 @@ Explore inheritance hierarchies locally in your terminal:
 ```
 make
 cd to/your/project
-.~/itree/itree
+~/itree/itree
 ```
 
 A `compile_commands.json` will be required. Generate one with either with `make` and `bear` or CMake's `EXPORT_COMPILE_COMMANDS`.

@@ -31,7 +31,7 @@ Explore inheritance hierarchies locally in your terminal:
          └── public virtual void invalidate_cache() multiple override;
 ```
 
-### Usage
+## Usage
 
 ```
 make
@@ -39,8 +39,8 @@ cd to/your/project
 .~/itree/itree
 ```
 
-A `compile_commands.json` will be required. Generate one with either with `make` and `bear` or CMake's EXPORT_COMPILE_COMMANDS.
-Be sure to somewhere specify std::lib's `isystem` include path too.
+A `compile_commands.json` will be required. Generate one with either with `make` and `bear` or CMake's `EXPORT_COMPILE_COMMANDS`.
+Be sure to somewhere specify C++'s standard library include location with `-isystem` flag.
 
 ### Deps
 

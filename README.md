@@ -39,15 +39,12 @@ cd to/your/project
 ~/itree/itree
 ```
 
-A `compile_commands.json` will be required. Generate one with either with `make` and `bear` or CMake's `EXPORT_COMPILE_COMMANDS`.
-Be sure to somewhere specify C++'s standard library include location with `-isystem` flag.
+A `compile_commands.json` will be required. Generate one with either with `bear -- make` or CMake's `EXPORT_COMPILE_COMMANDS`.
+Be sure to somewhere specify C++'s standard library include location with the `-isystem` flag.
 
-At the prompt:
-`?` Dump all inheritance trees.
-
-Otherwise, type any class or struct name to get their inheritance tree. Use
-the fully resolved exact namespace name for a class or struct. A suggestion
-will be printed if just the class name is given.
+At the prompt, `?` will dump all inheritance trees, otherwise, type any class or struct name to get their inheritance tree.
+Use the fully resolved exact namespace name for a class or struct. A suggestion will be printed if just the class or
+struct name is given.
 
 ### Deps
 

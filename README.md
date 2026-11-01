@@ -2,6 +2,7 @@
 
 Explore inheritance hierarchies locally in your terminal:
 
+```
  class K::AllocationBitmap main.cc:185
  ├── protected bool allocate_block();
  ├── protected void release_block(uint64_t);
@@ -28,6 +29,7 @@ Explore inheritance hierarchies locally in your terminal:
      ├── public virtual bool exists(const std::string &) = 0;
      └── extends with public K::FilesystemCore main.cc:112
          └── public virtual void invalidate_cache() multiple override;
+```
 
 ### Usage
 

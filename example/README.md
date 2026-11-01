@@ -11,6 +11,9 @@ And run in the inheritance tree viewer:
 
 `../itree`
 
+In the `itree` prompt type either `?` to get all heirarchies, or a class name with
+namespace, eg `K::SnapshotFilesystem`.
+
 Notice how, in the Makefile, the location of your C++ standard library
 needs to be specified with `-isystem /usr/lib/clang/23/include`. This
 is a hard requirement and platform dependent. Modify it as needed for your machine

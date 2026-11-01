@@ -1,8 +1,8 @@
-BIN      := llmv
+BIN      := itree
 CXX      := clang++
-CXXFLAGS := -Wshadow -Wall -pedantic -Wextra -g -O0 -MMD -MP $(shell llvm-config --cxxflags)
-LDFLAGS  := -lclang-cpp $(shell llvm-config --ldflags)
-LDLIBS   := -lclang-cpp $(shell llvm-config --ldflags --system-libs --libs all) -lreadline
+CXXFLAGS := $(shell llvm-config --cxxflags) -Wshadow -Wall -pedantic -Wextra -g -O2 -MMD -MP
+LDFLAGS  := $(shell llvm-config --ldflags)
+LDLIBS   := $(shell llvm-config --system-libs --libs all) -lclang-cpp -lreadline -lcurl
 SRC      := $(wildcard *.cc)
 OBJ      := $(SRC:.cc=.o)
 DEP      := $(OBJ:.o=.d)

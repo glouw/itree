@@ -47,7 +47,7 @@ namespace RecordVisitor
             }
             if(auto* spec = llvm::dyn_cast<clang::ClassTemplateSpecializationDecl>(decl))
             {
-                const auto kind = spec->getSpecializationKind();
+                const clang::TemplateSpecializationKind kind = spec->getSpecializationKind();
                 if(kind == clang::TSK_Undeclared or kind == clang::TSK_ExplicitInstantiationDeclaration)
                 {
                     return true;
